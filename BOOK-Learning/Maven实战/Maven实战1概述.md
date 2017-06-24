@@ -13,10 +13,11 @@ categories: Maven实战
 
 * 安装与升级：下载解压，设置Maven_HOME变量，将／bin目录加入环境中，即可在终端中直接使用Maven（为方便以后的升级维护，可为安装目录建立一符号连接，用链接的目录配置环境变量，这样在以后升级中只需改变符号链接的指向即可，方便维护）
 
-* 安装目录：bin/ 二进制执行文件，mvn与mvnDebug（带有调试选项）,m2.conf为classworlds配置文件
-　　boot/　只有一个plexus-classworlds类加载框架，mvn使用其加载类库
-　　conf/  settings.xml为mvn行为全局配置文件（～/.m２／下的为作用单用户范围）,此外此目录还包含logging,m2.conf,toolchains.xml
-   lib/　为mvn本身的jar类库文件，和第三方依赖:
+* 安装目录：
+    * bin/ 二进制执行文件，mvn与mvnDebug（带有调试选项）,m2.conf为classworlds配置文件
+    * boot/　只有一个plexus-classworlds类加载框架，mvn使用其加载类库
+    * conf/  settings.xml为mvn行为全局配置文件（～/.m２／下的为作用单用户范围）,此外此目录还包含logging,m2.conf,toolchains.xml
+    * lib/　为mvn本身的jar类库文件，和第三方依赖:
 
 
 
