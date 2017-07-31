@@ -175,3 +175,62 @@
     * FutureTask:也可以用来作闭锁，FutureTask实现了Future语义，表示一种抽象的可生成结果的计算。FutureTask表示的计算通过Callable来实现，相当于一种可生成结果的Runable,可处于等待运行/正在运行／运行完成三种状态。“执行完成”表示计算的所有可能结束方式，包括正常结束，由于取消／异常而结束等。当FutureTask进入完成状态，他会永远停止在这个状态。 
         * Future.get()的行为取决于任务的状态，若任务完成则get会立即返回结果，否则get会阻塞直到任务进入完成状态，然后返回结果或者抛出异常。FutureTask将计算结果从执行计算的线程传递到获取这个结果的线程，且FutureTask的规范会保证这种传递过程会实现结果的安全发布。
         * FutureTask在Executor框架中表示异步任务，此外还可以用来表示一些时间较长的计算，这些计算可以在使用计算结果之前启动.
+```
+Class Name{
+    private final FutureTask<T> future=new FutureTask<T>{
+        new Callable<T>{
+            public class(){...}
+        }
+    public T get(){
+        try{
+             return futureTask.get();   //若准备完成则立即返回，否则等待加载完成
+        }
+        catch(ExecutionExceptione e){　　　//任务代码的所有异常都会被封装到ExecutionException中，并抛出,可能为以下三种:Callable抛出的受检查异常，
+            .....                          //或RuntimeException，或Error,需对每种情况单独处理
+        }
+    }
+}
+```
+
+* 信号量:计数信号量用来控制同时访问某个特定资源的操作数量或同时执行某个指定操作的数量，还可用来实现资源池，或对容器施加边界
+    * semaphore中管理这一组虚拟许可(许可的初始数量可通过构造函数指定)，在执行某个操作时首先获得许可(若没有可用许可请求获得线程将阻塞直到有可用许可)，并在使用后释放许可，可用于实现资源池(如数据库连接池)，也可以利用其将任何一种容器变为有界阻塞容器。acquire()获得一个许可/release()方法将释放/返回一个许可给信号量，
+    * 计算信号量为二值信号量mutex(即初始值为1的semphore),可以用作互斥体,并具备不可重入的加锁语义
+```
+Class Name{
+    private Semphore sem = new Semphore(N);
+    public blockingMethod{
+        sem.acquire();
+        ....
+        sem.release();
+    }
+}
+```
+* 栅栏:阻塞一组线程直到某个事件(所有线程准备完毕)发生(闭锁用于等待事件,栅栏用于等待其他线程)，常用实现一些协议
+    * CyclicBarrier可以使一定数量的参与方反复在栅栏位置汇集，常用于并行迭代算法(通常将一个问题拆分为许多独立的小的子问题)，还可以将一个Runable栅栏操作传递给其构造函数，当成功通过栅栏时(在一个子任务线程中)执行它。
+    * 当线程到达栅栏时，调用await()方法，此线程将被阻塞，直到所有线程都到达栅栏位置时，栅栏打开，所有等待线程被释放，而栅栏重置以便下次使用。如果对await()调用超时，或await阻塞的线程被中断,则栅栏被打破，所有阻塞的await()调用将终止并抛出BrokenBarrierException.如果成功通过栅栏，则await()将为每个线程返回一个唯一的到达索引号(可利用此所以选出一个领导线程，并在下一次迭代中由领导线程执行一些特殊操作)
+```
+Class ThreadName implements Runnable{
+    private CylicBarrier barrier=new CylicBarrier(awaitNum,new Runable｛ public void run(){...} ｝);
+    publc void run(){
+        try{
+            barrier.await();
+        }
+        catch(BrokenBarrierException e)
+        {...}
+    }
+}
+```
+> 另一种形式的栅栏是Exchange,是一种两方栅栏，各方在栅栏位置上交换数据。适用于双方执行不对称操作(如涉及缓冲区读/写，可用Exchange来汇合,并将满的缓冲区与空的缓冲区交换)，两个线程通过Exchange交换对象，从而把两个对象安全的发布给另一方。
+
+### 构建高效且可伸缩的结果缓存:
+* 使用缓存可以重用计算结果,降低延迟提高吞吐量。但同时也会占用较大的内存。简单的缓存可能将性能转变为可伸缩性瓶颈.
+
+> java.util.concurrent.ConcurrentMap接口和ConcurrentHashMap实现类只能在键不存在时将元素加入到map中，只有在键存在并映射到特定值时才能从map中删除一个元素。主要定义了下面几个方法：</br> V putIfAbsent(K key,V value) : 如果指定键已经不再与某个值相关联，则将它与给定值关联。 <br/> boolean remove(Object key,Object value) : 只有目前将键的条目映射到给定值时，才移除该键的条目。<br/> boolean replace(K key,V oldValue,V newValue) : 只有目前将键的条目映射到给定值时，才替换该键的条目。<br/> V replace(K key,V value) : 只有目前将键的条目映射到某一值时，才替换该键的条目
+
+
+### 并发基础知识总结:
+* 可变状态:所有并发问题可归结为对并发状态的访问的协调。可变状态越少，越容易确保线程安全性.
+* 尽量将不可变的域声明为final类型.不可变对象一定线程安全，可任意共享而无需其他同步机制
+* 封装有利于管理复杂性，将数据封装在对象中易于维持不变性条件，将同步机制封装在对象中，易于遵循同步策略
+* 用锁保护每个可变变量，当保护同一个不变性条件的所有变量时，使用同一个锁，执行复合操作时要持有锁
+
