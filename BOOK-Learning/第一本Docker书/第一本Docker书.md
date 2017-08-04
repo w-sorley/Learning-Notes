@@ -41,3 +41,28 @@ date: 2017-08-03
         * 写时复制:文件系统通过写时复制创建，文件系统分层，快速，且占用的磁盘空间更小;
         * 日志:容器产生的STDOUT,STDERR,STDIN这些IO流都会被收集并记入日志，可通过日志分析进行故障排错
         * 交互式Shell:可创建一个伪tty终端(连接到STDIN)
+
+## Docker入门:
+### 常用命令:
+* docker info: 查看Docker当前使用以及配置信息;
+* docker run -it \[image_name\] /bin/bash ：根据指定镜像创建/启动docker容器(-i保证容器内开启STDIN以支持交互式shell,-t为创建的容器分配一个伪tty终端),并且容器启动后
+执行"/bin/bash"命令 
+    * --name [container_name]:指定容器名称，默认随机生成，可利用名称，长/短ID标识唯一容器
+    * －d:创建长期运行的守护式进程，无交互式会话适合运行应用程序和服务(默认为交互式容器，执行exit退出容器的shell后，容器停止运行):
+    * --restart=[always/on-failure:N]:根据容器退出代码决定是否重启容器
+* docker ps: 查看容器列表，默认列出运行的容器(-a列出当前存在的所有容器，－q只返回容器id)
+* docker inspect　[name/id]：查看容器详细信息，会对容器进行详细检查，返回其详细配置信息;
+> 此外/var/lib/docker目录存放着Docker镜像,容器以及容器配置等，可通过浏览该目录深入了解Docker工作原理
+* docker start/restart [name or id] :启动／重启一个容器，启动后会沿用docker run创建容器时，定义的参数
+    *docker attach [name or id]： 启动／重启容器后，重新附着到容器的会话／终端shell上；
+* docker logs [name/id]: 可以查看获取(后台)容器的输出日志:
+    * -f:实时跟踪监控日志输出
+    * --tail [Num]:获取部分日志
+    * -t: 在每条输出日志前面添加时间戳
+* docker top [name/id]：　查看容器内部运行的进程
+* docker exec -d [name/id] [shell command]：在docker内部启动新的进程，
+    * -d:后台运行，默认为交互式前台运行
+    * -i -t：同docker run中参数，创建/进入一个tty终端
+* docker stop [name/id]: 停止(守护式)容器，会向Docker容器进程发送SIGTERM信号,此外docker kill会向容器进程发送SIGKILL信号，可快速停止某个容器
+* docker rm [name/id]: 删除停止运行的容器
+    
