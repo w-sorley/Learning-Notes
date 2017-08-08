@@ -50,6 +50,9 @@ date: 2017-08-03
     * --name [container_name]:指定容器名称，默认随机生成，可利用名称，长/短ID标识唯一容器
     * －d:创建长期运行的守护式进程，无交互式会话适合运行应用程序和服务(默认为交互式容器，执行exit退出容器的shell后，容器停止运行):
     * --restart=[always/on-failure:N]:根据容器退出代码决定是否重启容器
+    * 在执行docker run时可利用-p N:M参数指定对外公开的端口,可以指定ip，也可以映射到宿主机随机端口
+    * 此外-P参数可用来公开在Dockerfile中EXPOSE指令设置的所有端口
+    * -v source_dir:dest_dir:rw/ro :使用宿主机目录作为卷，挂载到容器(卷是一个或多个容器内被选定的目录，可以绕过分层的联合文件系统为Docker提供持久数据或共享数据，对卷的修改会立即生效，并绕过镜像，当提交/创建镜像时卷不被包括在镜像里)
 * docker ps: 查看容器列表，默认列出运行的容器(-a列出当前存在的所有容器，－q只返回容器id)
 * docker inspect　[name/id]：查看容器详细信息，会对容器进行详细检查，返回其详细配置信息;
 > 此外/var/lib/docker目录存放着Docker镜像,容器以及容器配置等，可通过浏览该目录深入了解Docker工作原理
@@ -66,3 +69,26 @@ date: 2017-08-03
 * docker stop [name/id]: 停止(守护式)容器，会向Docker容器进程发送SIGTERM信号,此外docker kill会向容器进程发送SIGKILL信号，可快速停止某个容器
 * docker rm [name/id]: 删除停止运行的容器
     
+## Docker镜像和仓库:
+### Docker镜像:
+* Docker镜像由文件系统叠加而成：
+    * 最底层为引导文件系统bootfs,当一个容器启动后将会被移到内存中，而引导文件系统会被卸载，以留出更多空间给initrd磁盘镜像使用;
+    * 第二层是root文件系统rootfs,位于引导文件系统之上，可以是一种或多种操作系统;和传统linux引导过程(root文件系统先以只读方式加载，引导结束并完成完整性检查后，切换为读写模式)不同,在docker中，root文件系统永远为只读状态，且docker会利用联合加载技术在root文件系统层上加载多个只读文件系统，联合加载指指一次同时加载多个文件系统，对外只能看到一个文件系统，联合加载会将各层文件系统叠加在一起，最终的文件系统会包含所有底层的文件和目录。
+    * Docker将最终叠加的文件系统称为镜像,同时镜像可叠加，最底层的为基础镜像,下一层的称为父镜像。当从一个镜像启动容器时，Docker会在该镜像的最顶层加载一个读写文件系统，在docker中运行的程序在此读写层运行(读写层初始为空，如读写一个文件时，该文件首先从下面的只读层复制到读写层，称为写时复制)
+    * 当创建一个新容器时，Docker会构建出一个镜像栈，并在栈的最顶端添加一个读写层，读写层加上其下面的镜像层和其他配置数据构成一个容器；
+* docker images \<image_name\>:列出本机可用镜像,可指定某一镜像
+* docker commit \[container_id\]　\[registr_name/new_image_name\]：保存当前容器状态为一个新的镜像，增量式(差异式)保存，可指定--author=".." -m=".."等其他信息
+* docker build:基于DockeFile构建镜像，-t=".."可指定仓库名称标签(默认tag为latest),也可以在后面接一个git仓库源地址指定DockerFile的位置，--no-cache不适用缓存(Docker会将构建过程中的每次提交作为缓存，当再次构建时基于已有缓存开始)；
+* docker history　\[image_id\]：查看镜像的详细构建过程
+* docker port \[container_id\] \[port\]: 查看容器端口映射信息
+### 镜像仓库:
+* docker login：登录Docker Hub并将认证信息保存到本机
+* docker pull \[registry_name\]:\<tag\> ：拉取指定镜像仓库中的所有内容到本机(可利用标签tag区分同一个仓库的不同镜像，docker run默认会tag为latest,Docker Hub分为顶层仓库和用户仓库(指定时包含用户名))；
+* docker push \[user_name/image_name\]：　可将本地镜像推送到远程仓库
+* docker rmi \[image_name \]：删除一个镜像
+* docker search \[image_name\]：查找所有Docker Hub上公共的可用镜像；
+* docker run -p Port1:Port2 registry:启动一个运行镜像仓库Registry的容器 
+> 自动构建：将github(或BitBucket)中含有DockerFile文件的仓库连接到Docker Hub，当向代码仓库推送代码时，将触发构建一个的新的镜像
+
+## 在测试中使用Docker
+
