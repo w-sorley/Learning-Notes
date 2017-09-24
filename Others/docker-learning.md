@@ -36,29 +36,40 @@ date: 2017-07-20 11:02
 * Docker Deamon的安全接口
 * Linux本身的安全加固解决方案,类如AppArmor, SELinux
 
+
 ## 使用dockerfile构建image镜像:
 * 概述:dockerfile有自己特定的定义语言，构建时会被翻译为linux指令;根据作用，指令分为:
     * 构建指令:用于构建image不在docker容器中运行)；
     * 设置指令：用于设置docker容器的属性，将会在docker容器中执行)）
+* 构建时需要将DockerFile放在一个特定的文件夹，称此环境为构建上下文，在此目录执行docker build(-t指定仓库和名称)则Docker构建镜像时，会将构建上下文和此环境的下的目录和文件上传到Docker的守护进程，从而Docker守护进程可直接访问想在镜像中存储的文件数据(可利用.dockerignore文件忽略指定文件或目录)；
+* DockerFile中的指令会依照顺序执行，每条指令都会创建一个新的镜像层并对镜像进行提交(类似docker commit),然后在　基于刚提交的镜像运行一个新容器
+* 使用构建缓存可以实现简单的DockerFile模板，基于模板简化可以简化DockerFile的编写
 ### 构建指令：
 * FROM \<image\>\[:tag\]: 指定基础image，可通过官方远程仓库/本地仓库指定（tag可选指定版本）,一般用在文件开始位置；
 * MAINTAINER \<name\>: 用来指定镜像创建者信息(可通过docker inspect命令查看)
-* RUN \<command\>或RUN \["executable","param1","param2"....\] :用来安装软件，可运行基础image支持的命令
+* RUN \<command\>或RUN \["executable","param1","param2"....\] :用来安装软件，可运行基础image支持的命令（前一个默认使用/bin/sh -c执行）
 * ENV \<key\> \<value\>: 用于在image中设置环境变量(以保证RUN命令可以使用)，可通过docker inspect查看环境变量信息，此外也可以在启动container时通过docker run -- env key=value 设置或修改环境变量信息
-* ADD \<src\> \<dest\>:将指定文件或目录拷贝到container的dest路径，所有拷贝到container的文件权限为0755，uid和gid为0；
+* ADD \<src\> \<dest\>:将指定文件或目录(只能是位于构建上下文中)拷贝到container的dest路径(目录路径必须以“／”结尾)，所有拷贝到container的文件权限为0755，uid和gid为0；
     * 如果src是目录会将目录下为所有文件拷贝(不包括目录);
     * 如果src为文件,当dest为目录且带有'/'是，会将文件拷贝到该目录下,如果dest为一个文件且不带'/'时，将将源文件追加到目标文件
     * 如果src为可识别的压缩文件，在container中会自动将其解压缩；
-
+* COPY:类似ADD指令，但不做文件提取和解压缩
 
 ### 设置指令：
-* CMD \["executable","param1","param2"....\] 或 CMD <command> <param1> ...: 设置container启动时执行的操作，只能在文件中出现一次（若出现多次则只执行最后一条，若需要执行多条指令，可通过shell脚本定义）
+* CMD \["executable","param1","param2"....\] 或 CMD <command> <param1> ...: 设置container启动时执行的操作，只能在文件中出现一次（若出现多次则只执行最后一条，若需要执行多条指令，可通过shell脚本定义），在执行docker run启动容器时指定的命令，会覆盖CMD定义的命令
 > 当Dockerfile指定了ENTRYPOINT（为一个可执行脚本或程序路径），可使用CMD \[”param1“,"param2"\]形式，param作为ENTRYPOINT的执行参数；
-* ENTRYPONT \["executable","param1","param2"....\] 或 ENTRYPOINT <command> <param>: 设置container启动时执行的操作，可与CMD配合使用，用来指定其执行参数，也可以单独使用，此时会与CMD相互覆盖，只有最后一个有效
+* ENTRYPONT \["executable","param1","param2"....\] 或 ENTRYPOINT <command> <param>: 设置container启动时执行的操作，可与CMD配合使用，用来指定其执行参数，也可以单独使用，此时会与CMD相互覆盖，只有最后一个有效，执行docker run命令时附带的任何参数都会作为参数传递给ENTRYPOINT指令的命令(也可以在docker run --entrypoint覆盖ENTRYPOINT指定的指令)
 * USER \<name\>: 用来设置container的用户
 * EXPOSE \<port\> \[...\]: 指定容器需要映射到宿主机的端口(container port->host port),在运行container时通过-p选项加上EXPOST定义的端口实现映射(可以指定宿主机端口，也可以不指定随机选择) 
 > 注:每次运行container时，其ip地址不固定，在桥接网卡的地址范围内随机生成，因此可利用端口映射，通过宿主机访问container内的端口服务，可以通过 docker port \<conttainer_port\> \<container_ID\> 查看映射到的宿主机端口
 * VOLUME \["\<mountpoint\>"\]: 指定挂载点，使container中一个目录具有持久化存储数据的功能，该目录可以被container自身使用，也可以共享给其他container使用
 > 注：container使用为文件系统为AUFS,不能持久化数据，当container关闭时，所有更改会丢失。
-* WORKDIR \<path\>： 切换目录，相当于cd;
-* ONBUILD <Dockerfile关键字>：在子镜像中执行
+* WORKDIR \<path\>： 切换目录，相当于cd，可用来设定命令执行的工作目录;
+* ONBUILD <Dockerfile关键字>：在子镜像中执行，为镜像添加触发器(当一个镜像被用作其他镜像的基础镜像时，该镜像中的触发器将会被执行)，触发器会在构建过程中在FROM之后插入新指令(为下面准备环境等)，触发器只能继承一次(即只能在子镜像中执行，不会在孙子镜像中执行)
+
+
+
+
+## 联合文件系统(Union File System):
+* 联合文件系统内部允许多个文件系统堆叠，目录中可能包含来自多个文件系统的文件(若两个文件具有相同的路径，则最后挂载的文件会隐藏之前的文件)，但在用户看来只是一个单独的文件系统
+* docker支持多种不同的UFS实现，包括AUFS,Overlay,devicemapper,BTRFS,ZFS等，根据系统需要选择(可通过docker info查看)

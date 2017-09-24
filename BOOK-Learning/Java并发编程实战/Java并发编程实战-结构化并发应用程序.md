@@ -47,3 +47,23 @@ public interface ExecutorService extends Executor{
 * 延迟／周期任务:相比Timer，ScheduledThreadPoolExcutor更加完善:
     * Timer在执行所有定时任务时只会创建一个线程(若一个任务执行时间过长会影响其他任务的精确定时)，Timer线程并不捕获异常，因此在TimerTask抛出未受检查异常时定时线程将终止，为完成的任务不会再执行，出现"线程泄露"；
     * 可以利用DelayQueue(实现了BlockingQueue,并为ScheduledThreadPoolExecutor提供调度功能)实现自己的调度服务:DelayQueue管理着一组Delay对象，每个Delay对象都有一个相应的延迟时间(只有某个元素逾期后才能从DelayQueue中执行take操作)，从DelayQueue中返回的对象将根据它们的延迟时间进行排序；
+
+## 找出可利用的并发性:
+* 使用Executor必须将任务表述为一个Runnable,有时任务边界并非显而易见，可能在单个任务中仍存在可并行的部分，在选择任务边界时，应权衡各种条件，发掘潜在的可并行策略
+* Executor使用Runnable作为任务抽象，不能够返回一个值或抛出一个异常，然而在实际中可能存在延迟计算的情况,此时Callable是一种更好的任务抽象：它认为主入口点(即call)将返回一个值或抛出一个异常，同时在Executor中包含一些辅助方法可以将其他类型的任务封装为一个Callable(如Runnable,java.security.PrivilegedAction)
+* Runnable和Callable描述的均为抽象的计算任务(通常有明确的生命周期)，Future表示一个任务的生命周期，并提供相应的方法来判断相应的任务是否完成或取消，以及获取任务的结果或取消任务，Future.get()若任务完成则立即返回或将EXception封装为ExecutionException抛出,若任务没有完成则阻塞等待直到任务完成，如果任务取消则抛出CancellationException.
+* 可以通过多个方法获得Future:ExecutorService中的所有submit()方法会返回一个Future（因此将一个Runnabel或Callable向Executor提交时将得到一个相应的Future）,或者显式的为某个Runnable或Callable实例化一个FutureTask(其实现了Runnable,可以提交给Executor执行，或直接调用其run()方法)
+> ExecutorService实现可以改写AbstractExecutorService中的newTaskFor()方法，根据已提交的Runnable或Callable来控制Futured的实例话过程(默认仅创建一个新的FutureTask)
+> 将Runnable或Callable提交到Executor或设置Future结果时均包含安全发布，确保线程安全
+* 在异构任务并行化中存在的局限:
+ * 需要在相似的任务间找出细粒度的并行性，同时需要权衡任务的分配(各自合理的运行时间，较低的任务协调开销)
+ * CompletionService:相比通过Future.get()轮询任务状态，CompletionService将Executor和BlockingQueue的功能融合，其可以负责执行Callable任务，使用类似队列的take/pull等方法获得已完成的结果(这些结果会在完成时封装为Future)
+ * ExecutorCompletionService实现了CompletionService并将计算部分委托给Executor,实现:在构造函数中床架一个BockingQueue保存计算完成结果，计算完成时调用Futuretask的done方法，当提交任务时，首相将任务包装为一个QueueingFuture(为FutureTask的子类)，然后改写子类的done方法将结果放入BlockingQueue
+ * Future可以设定时间限制，当任务在指定时间没有完成时，get()将抛出TimeoutException，此时应利用Future取消任务
+
+
+## 取消与关闭:
+125
+
+
+
