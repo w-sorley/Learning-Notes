@@ -100,3 +100,81 @@ title: Hadoop学习记录
     ```
     * $HADOOP_HOME/sbin/start-yarn.sh      # 启动YARN服务
     * $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver  #开启历史服务器，用于在Web中查看任务运行情况(默认端口8088)
+
+* 配置hadoop分布式集群:
+    * 前期准备:
+        * sudo vim /etc/hostname     #修改主机名(统一修改为hadoop-master 或 hadoop-slave$N)
+        * sudo vim /etc/hosts    ＃配置hosts文件，使得主机名与ip对应
+    * 配置ssh免密码登录
+        * (master) ssh-keygen -t rsa   && cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys    ＃(hadoop-master)生成私钥／公钥,将公钥添加到授权列表
+        * (master) scp ~/.ssh/id_rsa.pub hadoop@hadoop-slave$N:/home/hadoop/     ＃将公钥复制到从机slave中
+        * (slave) cat ~/id_rsa.pub >> ~/.ssh/authorized_keys                     ＃将主服务器公钥添加到所有slave丛机的授权列表
+    * 修改hadoop配置文件，进行分布式集群配置:
+        * slaves定义DataNode的主机名，如hadoop-slave(伪分布式一般定义为localhost)
+        ```
+        //core-site.xml
+        <configuration>
+            <property>
+                    <name>fs.defaultFS</name>
+                    <value>hdfs://Master:9000</value>
+            </property>
+            <property>
+                    <name>hadoop.tmp.dir</name>
+                    <value>file:/usr/local/hadoop/tmp</value>
+                    <description>Abase for other temporary directories.</description>
+            </property>
+        </configuration>
+
+        //hdfs-site.xml
+        <configuration>
+            <property>
+                    <name>dfs.namenode.secondary.http-address</name>
+                    <value>Master:50090</value>
+            </property>
+            <property>
+                    <name>dfs.replication</name>
+                    <value>1</value>
+            </property>
+            <property>
+                    <name>dfs.namenode.name.dir</name>
+                    <value>file:/usr/local/hadoop/tmp/dfs/name</value>
+            </property>
+            <property>
+                    <name>dfs.datanode.data.dir</name>
+                    <value>file:/usr/local/hadoop/tmp/dfs/data</value>
+            </property>
+        </configuration>
+
+        //mapred-site.xml
+        <configuration>
+            <property>
+                    <name>mapreduce.framework.name</name>
+                    <value>yarn</value>
+            </property>
+            <property>
+                    <name>mapreduce.jobhistory.address</name>
+                    <value>Master:10020</value>
+            </property>
+            <property>
+                    <name>mapreduce.jobhistory.webapp.address</name>
+                    <value>Master:19888</value>
+            </property>
+        </configuration>
+
+        //yarn-site.xml
+        <configuration>
+            <property>
+                    <name>yarn.resourcemanager.hostname</name>
+                    <value>Master</value>
+            </property>
+            <property>
+                    <name>yarn.nodemanager.aux-services</name>
+                    <value>mapreduce_shuffle</value>
+            </property>
+        </configuration>
+        ```
+        * 配置完成后，将Master上的 /usr/local/Hadoop 文件夹复制到各个节点上
+        * hdfs namenode -format       # 首次运行需要执行初始化
+        * start-dfs.sh　&& start-yarn.sh  && mr-jobhistory-daemon.sh start historyserve  ＃启动服务
+        >注意：１．启动服务可能出现JAVA_HOME环境变量配置问题，可在hadoop-env.sh中直接指定JAVA_HOME目录(sudo执行shell脚本可能会重置环境变量)
+        </br> 2.ssh连接失败时,检查是否是防火墙问题 
