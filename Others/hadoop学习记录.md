@@ -31,7 +31,72 @@ title: Hadoop学习记录
     export PATH=$PATH:$JAVA_HOME/bin
     ```
     * source ~/.bashrc                                        ＃使环境变量生效
-* 安装HADOOP环境[http://112.17.13.243/files/42440000077C9234/apache.fayea.com/hadoop/common/hadoop-2.7.1/hadoop-2.7.1.tar.gz](hadoop2.7.1下载地址)
+* 安装HADOOP环境[hadoop2.7.1下载地址](http://112.17.13.243/files/42440000077C9234/apache.fayea.com/hadoop/common/hadoop-2.7.1/hadoop-2.7.1.tar.gz)
     * tar -zxf hadoop-2.7.1.tar.gz -C /usr/local          ＃解压缩到/usr/local目录下
     * cd /usr/local && mv ./hadoop-2.7.1 hadoop/           #将HADOOP_HOME目录重命名为hadoop
     * ./hadoop/bin/hadoop version                         ＃测试hadoop是否可用
+    * hadop默认为本地模式(无需配置),可通过$HADOOP_HOME/bin/hadoop jar ./share/hadoop/mapreduce/hadoop-mapreduce-examples-2.6.0.jar查看运行hadoop本身自带的程序示例
+
+* Hadoop伪分布式配置：
+    * 修改配置文件core-site.xml和hdfs-site.xml为一下内容(配置文件位于 /usr/local/hadoop/etc/hadoop/目录下)
+    ```
+    //core-site.xml 
+    <configuration>
+        <property>
+            <name>hadoop.tmp.dir</name>
+            <value>file:/usr/local/hadoop/tmp</value>
+            <description>Abase for other temporary directories.</description>
+        </property>
+        <property>
+            <name>fs.defaultFS</name>
+            <value>hdfs://localhost:9000</value>
+        </property>
+    </configuration>
+
+    //hdfs-site.xml   
+    <configuration>
+        <property>
+            <name>dfs.replication</name>
+            <value>1</value>
+        </property>
+        <property>
+            <name>dfs.namenode.name.dir</name>
+            <value>file:/usr/local/hadoop/tmp/dfs/name</value>
+        </property>
+        <property>
+            <name>dfs.datanode.data.dir</name>
+            <value>file:/usr/local/hadoop/tmp/dfs/data</value>
+        </property>
+    </configuration>`
+    ```
+    * $HADOOP_HOME/bin/hdfs namenode -format                  #执行 NameNode 的格式化
+    * $HADOOP_HOME/sbin/start-dfs.sh                          #启动DFS,开启NameNode和DataNode守护进程
+    * 通过命令jps查看是否启动成功,同时通过浏览器访问localhost:50070可查看NameNode和Datanode信息和HDFS中的文件
+    * 伪分布式模式下运行程序示例
+        * $HADOOP_HOME/bin/hdfs dfs -mkdir -p /user/hadoop              #创建用户目录
+        * $HADOOP_HOME/bin/hdfs dfs -mkdir input                        #创建输入数据目录
+        * $HADOOP_HOME/bin/hdfs dfs -put ./etc/hadoop/*.xml input       #将输入数据文件放在HDFS上
+        * $HADOOP_HOME/bin/hadoop jar ./share/hadoop/mapreduce/hadoop-mapreduce-examples-*.jar grep input output 'dfs[a-z.]+' #执行示例程序
+        * $HADOOP_HOME/bin/hdfs dfs -cat output/*                       #查看运行结果
+    > 出现JAVA_HOME NOT SET错误，可直接在$HADOOP_HOME/etc/hadoop/hadoop-env.sh修改JAVA_HOME
+    > iptables -t nat -A  DOCKER -p tcp --dport \<HOST_PORT\> -j DNAT --to-destination \<container_ip\>:\<DOCKER_PORT\> 可暴露运行时的容器指定端口
+* 配置启动YARN：
+    * 更改mapred配置文件和yarn配置文件：mv ./etc/hadoop/mapred-site.xml.template ./etc/hadoop/mapred-site.xml
+    ```
+    //mapred-site.xml
+    <configuration>
+        <property>
+            <name>mapreduce.framework.name</name>
+            <value>yarn</value>
+        </property>
+    </configuration>
+    //yarn-site.xml
+    <configuration>
+        <property>
+            <name>yarn.nodemanager.aux-services</name>
+            <value>mapreduce_shuffle</value>
+            </property>
+    </configuration>
+    ```
+    * $HADOOP_HOME/sbin/start-yarn.sh      # 启动YARN服务
+    * $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver  #开启历史服务器，用于在Web中查看任务运行情况(默认端口8088)
