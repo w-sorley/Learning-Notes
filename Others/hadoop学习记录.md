@@ -100,9 +100,6 @@ title: Hadoop学习记录
     ```
     * $HADOOP_HOME/sbin/start-yarn.sh      # 启动YARN服务
     * $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver  #开启历史服务器，用于在Web中查看任务运行情况(默认端口8088)
-<<<<<<< HEAD
-=======
-
 * 配置hadoop分布式集群:
     * 前期准备:
         * sudo vim /etc/hostname     #修改主机名(统一修改为hadoop-master 或 hadoop-slave$N)
@@ -179,5 +176,19 @@ title: Hadoop学习记录
         * hdfs namenode -format       # 首次运行需要执行初始化
         * start-dfs.sh　&& start-yarn.sh  && mr-jobhistory-daemon.sh start historyserve  ＃启动服务
         >注意：１．启动服务可能出现JAVA_HOME环境变量配置问题，可在hadoop-env.sh中直接指定JAVA_HOME目录(sudo执行shell脚本可能会重置环境变量)
-        </br> 2.ssh连接失败时,检查是否是防火墙问题 
->>>>>>> af6fef73c4df13264e1087bc44048c35b6f15eed
+        </br> 2.ssh连接失败时,检查是否是防火墙问题
+    * 注意事项:
+        * 1.slave从机yarn日志出现错误：NodeManager from  slavenode2 doesn't satisfy minimum allocations, Sending SHUTDOWN signal to the NodeManager
+        ```
+        //修改yarn-site.xml 添加：
+        <property>
+                <name>yarn.nodemanager.resource.memory-mb</name>
+                <value>1024</value>
+            </property>
+            <property>
+                <name>yarn.nodemanager.resource.cpu-vcores</name>
+                <value>1</value>
+            </property>
+        ```
+        * 2.datanode节点无法启动时(如当向dfs写入数据失败，提示datanode的节点数为0),则当我们再次启动dfs时应该首先删除原来的
+
