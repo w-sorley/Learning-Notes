@@ -73,3 +73,32 @@ date: 2017-07-20 11:02
 ## 联合文件系统(Union File System):
 * 联合文件系统内部允许多个文件系统堆叠，目录中可能包含来自多个文件系统的文件(若两个文件具有相同的路径，则最后挂载的文件会隐藏之前的文件)，但在用户看来只是一个单独的文件系统
 * docker支持多种不同的UFS实现，包括AUFS,Overlay,devicemapper,BTRFS,ZFS等，根据系统需要选择(可通过docker info查看)
+
+
+## Linux namespace
+* 概述:namespace是linux对计算机PID,IPC，network等资源进行隔离的一种方案，只需在调用clone创建进程时指定不同的flag,使得属于不同namespace的资源资源之间相互隔离，彼此透明，LXC(linux conatainer)的是实现就是利用了这一技术，使得属于不同container的资源位于不同namespace;
+### PID隔离
+* 当调用clone()创建进程时，指定flag为CLONE_NEWPID，将会创建一个新的PID Namespace,提供一个独立的PID环境，创建出的进程将作为该namespce的第一个进程(PID=1，)，在该namespace内调用fork,vfork,clone产生的进程都将从属该namespace(产生一个在namespace中独立的PID)
+* 在同一namespace下的孤儿进程都以初始时创建的PID=1的进程为父进程，当该进程(PID=1)结束时该namespace下的所有进程都会随之结束
+* PID namespace均有层次性，在一个namespace下创建的新的namespace将作为该namespace的子namespace，同时子namespace中的进程同时对上层namespace可见，从而一个进程不止拥有一个PID(在其所属的上层namespace中均有一个PID)；当linux系统启动时将创建一个默认的PID namespace作为以后所有PID namespace的祖先(因此系统所有进程在该祖先PID namespace中可见)
+
+### IPC隔离
+* 当调用clone()创建进程时，指定flag为CLONE_NEWIPC，将会创建一个新的IPC Namespace,创建出的进程将作为该namespce的第一个进程;
+* 一个IPC namespace有一组System V IPC objects标识符构成，在该IPC namespace下创建的IPC object仅仅对此namespace下的进程可见,从而保证只有同一个namespace下的进程才可以直接通信，当IPC namespace被销毁时,该namespace下的所有IPC object随之销毁
+* 可在调用clone()时同时指定flag为CLONE_NEWPID和CLONE_NEWIPC同时实现PID和IPC隔离，保证不同namespce下进程彼此不可见且不能相互通信，从而实现进程间的隔离
+
+### 文件系统隔离
+* 当调用clone()时，指定flag为CLONE_NEWNS,将会创建一个新的mount namespace,为进程提供一个文件层次视图(否则子进程和父进程将共享一个mount space)，从而子进程调用mount或umount将会创建一份新的文件层次视图(否则将会影响该namespace下的其他进程)，
+* 结合pivot_root,可以为进程创建一个独立的目录空间
+### 网络资源隔离
+* 当调用clone()时，指定flag为CLONE_NEWNET,将会创建一个新的network namespace,为进程提供一个完全独立的网络协议栈视图(包括网络设备接口，IPv4/IPv6协议栈，IP路由表，防火墙规则，socket等)，类似一个独立的系统。
+* 一个物理设备只能存在于一个network namespace(可以移动)，
+* 虚拟网络设备(virtual network device)提供了类似管道的抽象，可以在不同的namespace之间建立隧道，从而建立其到其他namespace下物理设备的桥接。
+* 当一个network namespace被销毁时，其中的物理设备将会转移到系统初始init network namespace
+### 主机host隔离
+* 当调用clone()时，指定flag为CLONE_NEWUTS，将会创建一个新的UTS namespace(即一组被uname返回的标识符)，新的UTS namespace将会复制其所属的上层UTS namespace的标识符来初始化，
+* 同时clone出的进程可以通过相关系统调用改变这些标识符(如sethostname()改变该namespace的HOSTNAME)改变对同一namespace下的所有进程可见
+* 结合CLONE_NEWNET和CLONE_NEWUTS可以虚拟出一个具有独立主机名的网络空间环境  
+
+### 小结
+* 以上所有flag均可以结合一起使用
