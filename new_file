@@ -1,0 +1,11 @@
+我克者为财，克我者为官
+
+#### 配置google cloud 虚拟主机
+* ssh开启密码登录(解决ssh登录,permission deny(publykey))
+* 配置ssh root 登录(解决密码正确仍然 permission deny)
+* 配置firewall规则
+* ssh错误多次会导致主机网络暂时拒绝服务(ping不通，等一下就可以了)
+
+
+### sudo 自动输入密码(解决桌面快捷方式需要sudo权限的问题)
+* 新建一个脚本`echo "password" | sudo -S xxxxxxx ` -S以管道输入作为密码
